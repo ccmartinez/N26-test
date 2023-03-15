@@ -3,15 +3,20 @@
             <h2 class="slds-text-heading_medium slds-var-m-bottom_medium">
                 Important information
             </h2>
-            <div style="height: 50px; position:relative" >
+            <div class="mainPanel">
                 <div role="status" class="slds-spinner slds-spinner_medium" lwc:if={showSpinner}>
                     <span class="slds-assistive-text">Loading</span>
                     <div class="slds-spinner__dot-a"></div>
                     <div class="slds-spinner__dot-b"></div>
                   </div>
                 <div lwc:else>
-                    <b>Contact Product: </b> <lightning-formatted-rich-text value={contactProductHyperLink}></lightning-formatted-rich-text><br/>
-                    <b>Contact Home Country: </b>{contactHomeCountry}
+                    <div class="errorMessage" lwc:if={showError}>
+                        ERROR CODE {errorCode}: {errorMessage}
+                    </div>
+                    <div lwc:else>
+                        <b>Contact Product: </b> <lightning-formatted-rich-text value={contactProductHyperLink}></lightning-formatted-rich-text><br/>
+                        <b>Contact Home Country: </b>{contactHomeCountry}
+                    </div>
                 </div>
             </div>
     </div>

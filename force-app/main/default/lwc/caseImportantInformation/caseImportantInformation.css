@@ -1,3 +1,10 @@
 .slds-box{
     background-color: white;
 }
+.errorMessage{
+    color: red;
+}
+
+.mainPanel{
+    height: 50px; position:relative;
+}

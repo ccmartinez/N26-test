@@ -6,6 +6,9 @@ export default class CaseImportantInformation extends LightningElement {
     @track contactProductHyperLink = null;
     @track contactHomeCountry = null;
     @track showSpinner = true;
+    @track showError = false;
+    @track errorCode = null;
+    @track errorMessage = null;
 
     renderedCallback(){
         this.retreiveData();
@@ -20,6 +23,9 @@ export default class CaseImportantInformation extends LightningElement {
         }).catch(error => {
             console.log(error);
             globalContext.showSpinner = false;
+            globalContext.showError = true;
+            globalContext.errorCode = error.status;
+            globalContext.errorMessage = error.statusText;
         });
     }
 }
