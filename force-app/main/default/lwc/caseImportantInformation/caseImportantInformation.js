@@ -1,5 +1,12 @@
 import { LightningElement, track, api} from 'lwc';
-import getContactProductImportantData from '@salesforce/apex/CaseImportantInformationController.getContactProductImportantData';
+import getContactProductsImportantData from '@salesforce/apex/CaseImportantInformationController.getContactProductsImportantData';
+
+const columns = [
+    { label: 'Contact Product', fieldName: 'contactProduct'},
+    { label: 'Contact Home Country', fieldName: 'contactHomeCountry'}
+];
+
+const data = [];
 
 export default class CaseImportantInformation extends LightningElement {
     @api recordId;
@@ -11,6 +18,11 @@ export default class CaseImportantInformation extends LightningElement {
     @track errorCodePopulated = false;
     @track errorMessage = null;
 
+    setErrorCode(val){
+        this.errorCodePopulated = true;
+        this.errorCode = val;
+    }
+
     renderedCallback(){
         this.retreiveData();
     }
@@ -18,10 +30,16 @@ export default class CaseImportantInformation extends LightningElement {
     retreiveData(){
             this.showSpinner = false; 
         }).catch(error => {
-            this.showSpinner = false;
             this.showError = true;
-            this.errorCode = error.status;
-            this.errorMessage = error.statusText;
+            if(error instanceof TypeError){
+                this.errorMessage = error.message;    
+            }
+            else{
+                this.errorMessage = error.statusText;
+                this.setErrorCode(error.status);
+            }
+
+            this.showSpinner = false;
         });
     }
 }
