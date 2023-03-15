@@ -11,11 +11,17 @@
                   </div>
                 <div lwc:else>
                     <div class="errorMessage" lwc:if={showError}>
-                        ERROR CODE {errorCode}: {errorMessage}
+                        ERROR<span lwc:if={errorCodePopulated}> CODE {errorCode}</span>: {errorMessage}
                     </div>
                     <div lwc:else>
-                        <b>Contact Product: </b> <lightning-formatted-rich-text value={contactProductHyperLink}></lightning-formatted-rich-text><br/>
-                        <b>Contact Home Country: </b>{contactHomeCountry}
+                        <!--<b>Contact Product: </b> <lightning-formatted-rich-text value={contactProductHyperLink}></lightning-formatted-rich-text><br/>
+                        <b>Contact Home Country: </b>{contactHomeCountry}-->
+                        <lightning-datatable
+                            hide-checkbox-column
+                            key-field="contactProduct"
+                            data={data}
+                            columns={columns}>
+                        </lightning-datatable>
                     </div>
                 </div>
             </div>

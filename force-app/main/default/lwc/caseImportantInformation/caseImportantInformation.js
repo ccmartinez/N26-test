@@ -17,6 +17,8 @@ export default class CaseImportantInformation extends LightningElement {
     @track errorCode = null;
     @track errorCodePopulated = false;
     @track errorMessage = null;
+    data = data;
+    columns = columns;
 
     setErrorCode(val){
         this.errorCodePopulated = true;
@@ -28,6 +30,13 @@ export default class CaseImportantInformation extends LightningElement {
     }
 
     retreiveData(){
+        getContactProductsImportantData({caseIds: [this.recordId]}).then(productWrappers => {
+            productWrappers.forEach(productWrapper => {
+                this.data.push({
+                    contactProduct: productWrapper.contactProductName,
+                    contactHomeCountry: productWrapper.contactHomeCountry
+                });
+            });
             this.showSpinner = false; 
         }).catch(error => {
             this.showError = true;
