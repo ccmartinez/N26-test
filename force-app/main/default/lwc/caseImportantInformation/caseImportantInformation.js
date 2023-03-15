@@ -1,27 +1,11 @@
 import { LightningElement, track, api} from 'lwc';
 import getContactProductImportantData from '@salesforce/apex/CaseImportantInformationController.getContactProductImportantData';
 
-const columns = [
-    { label: 'Contact Product', fieldName: 'contactProduct'},
-    { label: 'Contact Home Country', fieldName: 'contactHomeCountry'}
-];
-
-const data = [
-    {
-        id: 'a',
-        contactProduct: 'Test Product',
-        contactHomeCountry: 'Home Country'
-    }
-];
 export default class CaseImportantInformation extends LightningElement {
-    data = data;
-    columns = columns;
-    @api
-    recordId;
-    @track
-    contactProduct = null;
-    @track
-    contactHomeCountry = null;
+    @api recordId;
+    @track contactProductHyperLink = null;
+    @track contactHomeCountry = null;
+    @track showSpinner = true;
 
     renderedCallback(){
         this.retreiveData();
@@ -30,10 +14,12 @@ export default class CaseImportantInformation extends LightningElement {
     retreiveData(){
         let globalContext = this;
         getContactProductImportantData({caseId: this.recordId}).then(productWrapper => {
-            globalContext.contactProduct = productWrapper.contactProduct;
             globalContext.contactHomeCountry = productWrapper.contactHomeCountry;
+            globalContext.contactProductHyperLink = '<a href=' + productWrapper.contactProductUrl + '> ' + productWrapper.contactProductName + '</a>';
+            globalContext.showSpinner = false;
         }).catch(error => {
             console.log(error);
+            globalContext.showSpinner = false;
         });
     }
 }
