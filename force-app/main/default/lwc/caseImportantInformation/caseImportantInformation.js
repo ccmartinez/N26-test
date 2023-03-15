@@ -8,6 +8,7 @@ export default class CaseImportantInformation extends LightningElement {
     @track showSpinner = true;
     @track showError = false;
     @track errorCode = null;
+    @track errorCodePopulated = false;
     @track errorMessage = null;
 
     renderedCallback(){
@@ -15,10 +16,7 @@ export default class CaseImportantInformation extends LightningElement {
     }
 
     retreiveData(){
-        getContactProductImportantData({caseId: this.recordId}).then(productWrapper => {
-            this.contactHomeCountry = productWrapper.contactHomeCountry;
-            this.contactProductHyperLink = '<a href=' + productWrapper.contactProductUrl + '> ' + productWrapper.contactProductName + '</a>';
-            this.showSpinner = false;
+            this.showSpinner = false; 
         }).catch(error => {
             this.showSpinner = false;
             this.showError = true;
