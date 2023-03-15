@@ -15,17 +15,16 @@ export default class CaseImportantInformation extends LightningElement {
     }
 
     retreiveData(){
-        let globalContext = this;
         getContactProductImportantData({caseId: this.recordId}).then(productWrapper => {
-            globalContext.contactHomeCountry = productWrapper.contactHomeCountry;
-            globalContext.contactProductHyperLink = '<a href=' + productWrapper.contactProductUrl + '> ' + productWrapper.contactProductName + '</a>';
-            globalContext.showSpinner = false;
+            this.contactHomeCountry = productWrapper.contactHomeCountry;
+            this.contactProductHyperLink = '<a href=' + productWrapper.contactProductUrl + '> ' + productWrapper.contactProductName + '</a>';
+            this.showSpinner = false;
         }).catch(error => {
             console.log(error);
-            globalContext.showSpinner = false;
-            globalContext.showError = true;
-            globalContext.errorCode = error.status;
-            globalContext.errorMessage = error.statusText;
+            this.showSpinner = false;
+            this.showError = true;
+            this.errorCode = error.status;
+            this.errorMessage = error.statusText;
         });
     }
 }
