@@ -20,7 +20,6 @@ export default class CaseImportantInformation extends LightningElement {
             this.contactProductHyperLink = '<a href=' + productWrapper.contactProductUrl + '> ' + productWrapper.contactProductName + '</a>';
             this.showSpinner = false;
         }).catch(error => {
-            console.log(error);
             this.showSpinner = false;
             this.showError = true;
             this.errorCode = error.status;

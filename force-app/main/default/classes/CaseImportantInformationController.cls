@@ -5,7 +5,6 @@ public with sharing class CaseImportantInformationController {
 
         String contactProductUrl = URL.getSalesforceBaseUrl().toExternalForm() + '/' + caseToProcess.Contact.Product__c;
 
-        System.debug(contactProductUrl);
         return new ProductWrapper(caseToProcess.Contact.Home_Country__c, caseToProcess.Contact.Product__r.Name, contactProductUrl);
     }
 
