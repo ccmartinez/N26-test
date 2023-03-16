@@ -1,12 +1,5 @@
 import { LightningElement, track, api} from 'lwc';
-import getContactProductsImportantData from '@salesforce/apex/CaseImportantInformationController.getContactProductsImportantData';
-
-const columns = [
-    { label: 'Contact Product', fieldName: 'contactProduct'},
-    { label: 'Contact Home Country', fieldName: 'contactHomeCountry'}
-];
-
-const data = [];
+import getProductsImportantDataBasedOnCases from '@salesforce/apex/CaseImportantInformationController.getProductsImportantDataBasedOnCases';
 
 export default class CaseImportantInformation extends LightningElement {
     @api recordId;
@@ -17,8 +10,8 @@ export default class CaseImportantInformation extends LightningElement {
     @track errorCode = null;
     @track errorCodePopulated = false;
     @track errorMessage = null;
-    data = data;
-    columns = columns;
+    data = [];
+    columns = [];
 
     setErrorCode(val){
         this.errorCodePopulated = true;
@@ -30,12 +23,23 @@ export default class CaseImportantInformation extends LightningElement {
     }
 
     retreiveData(){
-        getContactProductsImportantData({caseIds: [this.recordId]}).then(productWrappers => {
+        debugger;
+        getProductsImportantDataBasedOnCases({caseIds: [this.recordId]}).then(productWrappers => {
             productWrappers.forEach(productWrapper => {
-                this.data.push({
-                    contactProduct: productWrapper.contactProductName,
-                    contactHomeCountry: productWrapper.contactHomeCountry
-                });
+                this.columns.push({label: productWrapper.productName, fieldName: 'priceBookName'});
+                productWrapper.contactHomeCountries.forEach(contactHomeCountry => {
+                    this.columns.push({label: contactHomeCountry, fieldName: contactHomeCountry});
+                })
+
+                productWrapper.productPriceBooks.forEach(priceBook => {
+                    let priceBookWrapper = {};
+                    priceBookWrapper.priceBookName = priceBook.name;
+                    
+                    priceBook.prices.forEach(price => {
+                        priceBookWrapper[price.countryCode] = price.currencyType + ' ' + price.priceBookPrice;
+                    })
+                    this.data.push(priceBookWrapper);
+                })
             });
             this.showSpinner = false; 
         }).catch(error => {
