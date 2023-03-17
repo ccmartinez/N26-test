@@ -1,6 +1,6 @@
 public with sharing class CaseImportantInformationController {
     @AuraEnabled
-    public static ProductWrapper[] getProductsImportantData(String[] caseIds){
+    public static ProductWrapper[] getProductsImportantDataBasedOnCases(String[] caseIds){
         Case[] casesToProcess = [SELECT Contact.Product__c, Contact.Product__r.Name FROM Case WHERE Id IN :caseIds];
         Set<Id> productIds = new Set<Id>();
 
@@ -15,11 +15,15 @@ public with sharing class CaseImportantInformationController {
         ProductWrapper[] wrappersToReturn = new ProductWrapper[0];
         Map<Id, Contact[]> productIdToContactsMap = new Map<Id, Contact[]>();
         Map<Id, PricebookEntry[]> productIdToPriceBookEntriesMap = new Map<Id, PricebookEntry[]>();
+        String defaultCurrencyCode = [SELECT IsoCode FROM CurrencyType WHERE IsCorporate = true].IsoCode;
 
-        Contact[] parentProductsContacts = [SELECT Home_Country__c, Product__c, Product__r.Name FROM Contact WHERE Product__c IN :productIds];
+        Contact[] parentProductsContacts = [
+            SELECT CurrencyIsoCode, Home_Country__c, Product__c, Product__r.Name, Product__r.QuantityUnitOfMeasure FROM Contact 
+            WHERE Product__c IN :productIds AND Product__r.isActive = true
+        ];
         PricebookEntry[] productsPriceBookEntries = [
-            SELECT CurrencyIsoCode, Location__c, Pricebook2.Name, Product2.Parent_Product__c, Product2.Parent_Product__r.QuantityUnitOfMeasure, UnitPrice 
-            FROM PricebookEntry WHERE Product2.Parent_Product__c IN :productIds
+            SELECT Location__c, Pricebook2.Name, Product2Id, Product2.QuantityUnitOfMeasure, UnitPrice 
+            FROM PricebookEntry WHERE Product2Id IN :productIds AND Product2.isActive = true
         ];
 
         for(Contact c: parentProductsContacts){
@@ -32,23 +36,28 @@ public with sharing class CaseImportantInformationController {
         }
 
         for(PricebookEntry productPriceBookEntry: productsPriceBookEntries){
-            if(productIdToPriceBookEntriesMap.containsKey(productPriceBookEntry.Product2.Parent_Product__c)){
-                productIdToPriceBookEntriesMap.get(productPriceBookEntry.Product2.Parent_Product__c).add(productPriceBookEntry);
+            if(productIdToPriceBookEntriesMap.containsKey(productPriceBookEntry.Product2Id)){
+                productIdToPriceBookEntriesMap.get(productPriceBookEntry.Product2Id).add(productPriceBookEntry);
             }
             else{
-                productIdToPriceBookEntriesMap.put(productPriceBookEntry.Product2.Parent_Product__c, new PricebookEntry[]{productPriceBookEntry});
+                productIdToPriceBookEntriesMap.put(productPriceBookEntry.Product2Id, new PricebookEntry[]{productPriceBookEntry});
             }
         }
 
         for(Id productId: productIds){
             Contact[] parentProductContacts = productIdToContactsMap.get(productId);
 
-            if(!parentProductContacts.isEmpty()){
+            if(!parentProductContacts.isEmpty()){ //There is no table if there are no contacts related to the product, because the contacts gives us the countries of the product
+                Boolean priceInPercent = (parentProductContacts[0].Product__r.QuantityUnitOfMeasure == 'Percent');
                 PricebookEntry[] productPricebookEntries = productIdToPriceBookEntriesMap.get(productId);
-                wrappersToReturn.add(new ProductWrapper(parentProductContacts[0].Product__r.Name, parentProductContacts, productPricebookEntries));
+                wrappersToReturn.add(new ProductWrapper(
+                    defaultCurrencyCode, priceInPercent, 
+                    parentProductContacts[0].Product__r.Name, parentProductContacts, productPricebookEntries
+                ));
             }
         }
         
+        System.debug(wrappersToReturn);
         return wrappersToReturn;
     }
 
@@ -56,75 +65,55 @@ public with sharing class CaseImportantInformationController {
         @AuraEnabled
         public String productName;
         @AuraEnabled
-        public String[] contactHomeCountries;
+        public Boolean priceInPercent;
+        @AuraEnabled
+        public Map<String, String> contactHomeCountriesToCurrencyIsoCodes;
         @AuraEnabled
         public PriceBookWrapper[] productPriceBooks;
 
         public ProductWrapper(){}
-        public ProductWrapper(String productName, Contact[] contactList, PricebookEntry[] priceBookEntryList){
+        public ProductWrapper(String defaultCurrencyCode, Boolean priceInPercent, String productName, Contact[] contactList, PricebookEntry[] priceBookEntryList){
             this.productName = productName;
-            contactHomeCountries = new String[0];
-            Set<String> contactHomeCountriesAsSet = new Set<String>();
+            contactHomeCountriesToCurrencyIsoCodes = new Map<String, String>();
+            productPriceBooks = new PriceBookWrapper[0];
             
             Map<String, PricebookEntry[]> priceBookIdToEntriesMap = new Map<String, PricebookEntry[]>();
 
             for(Contact c: contactList){
-                contactHomeCountriesAsSet.add(c.Home_Country__c);
-            }
-
-            contactHomeCountries.addAll(contactHomeCountriesAsSet);
-
-            for(PricebookEntry priceBookEntry: priceBookEntryList){
-                if(priceBookIdToEntriesMap.containsKey(priceBookEntry.Pricebook2Id)){
-                    priceBookIdToEntriesMap.get(priceBookEntry.Pricebook2Id).add(priceBookEntry);
+                if(c.Home_Country__c == null){
+                    contactHomeCountriesToCurrencyIsoCodes.put('Standard', defaultCurrencyCode);
                 }
                 else{
-                    priceBookIdToEntriesMap.put(priceBookEntry.Pricebook2Id, new PricebookEntry[]{priceBookEntry});
+                    contactHomeCountriesToCurrencyIsoCodes.put(c.Home_Country__c, c.CurrencyIsoCode);
                 }
             }
 
-            for(PricebookEntry[] entriesOfAPriceBook: priceBookIdToEntriesMap.values()){
-                productPriceBooks.add(new PriceBookWrapper(entriesOfAPriceBook, contactHomeCountriesAsSet));
+            if(priceBookEntryList != null){
+                for(PricebookEntry priceBookEntry: priceBookEntryList){
+                    if(priceBookIdToEntriesMap.containsKey(priceBookEntry.Pricebook2Id)){
+                        priceBookIdToEntriesMap.get(priceBookEntry.Pricebook2Id).add(priceBookEntry);
+                    }
+                    else{
+                        priceBookIdToEntriesMap.put(priceBookEntry.Pricebook2Id, new PricebookEntry[]{priceBookEntry});
+                    }
+                }
+    
+                for(PricebookEntry[] entriesOfAPriceBook: priceBookIdToEntriesMap.values()){
+                    productPriceBooks.add(new PriceBookWrapper(entriesOfAPriceBook));
+                }
             }
         }
     }
 
     public class PriceBookWrapper{
         @AuraEnabled
-        public String priceBookName;
+        public String name;
         @AuraEnabled
-        public PriceWrapper[] priceBookPrices;
+        public Decimal price;
         
-        public PriceBookWrapper(PricebookEntry[] priceBookEntryList, Set<String> countryCodes){
-            priceBookPrices = new PriceWrapper[0];
-
-            Map<String, PricebookEntry> countryCodeToPriceBookEntryMap = new Map<String, PricebookEntry>();
-
-            for(PricebookEntry entry: priceBookEntryList){
-                countryCodeToPriceBookEntryMap.put(entry.Location__c.getCountryCode(), entry);
-            }
-            for(String countryCode: countryCodes){
-                PricebookEntry countryCodeEntry = countryCodeToPriceBookEntryMap.get(countryCode);
-                priceBookPrices.add(new PriceWrapper(countryCodeEntry));
-            }
-        }
-    }
-
-    public class PriceWrapper{
-        @AuraEnabled
-        public Decimal priceBookPrice;
-        @AuraEnabled
-        public String currencyType;
-
-        public PriceWrapper(PricebookEntry entry){
-            priceBookPrice = entry.UnitPrice;
-
-            if(entry.Product2.Parent_Product__r.QuantityUnitOfMeasure == 'Percentage'){{
-                currencyType = '%';
-            }}
-            else{
-                currencyType = entry.CurrencyIsoCode;
-            }
+        public PriceBookWrapper(PricebookEntry[] priceBookEntryList){
+            name = priceBookEntryList[0].Pricebook2.Name;
+            price = priceBookEntryList[0].UnitPrice;
         }
     }
 }

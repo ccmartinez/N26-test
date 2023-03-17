@@ -12,6 +12,7 @@ export default class CaseImportantInformation extends LightningElement {
     @track errorMessage = null;
     data = [];
     columns = [];
+    alreadyRendered = false;
 
     setErrorCode(val){
         this.errorCodePopulated = true;
@@ -19,40 +20,66 @@ export default class CaseImportantInformation extends LightningElement {
     }
 
     renderedCallback(){
+        this.alreadyRendered = true;
         this.retreiveData();
     }
 
     retreiveData(){
-        debugger;
         getProductsImportantDataBasedOnCases({caseIds: [this.recordId]}).then(productWrappers => {
-            productWrappers.forEach(productWrapper => {
-                this.columns.push({label: productWrapper.productName, fieldName: 'priceBookName'});
-                productWrapper.contactHomeCountries.forEach(contactHomeCountry => {
-                    this.columns.push({label: contactHomeCountry, fieldName: contactHomeCountry});
-                })
-
-                productWrapper.productPriceBooks.forEach(priceBook => {
-                    let priceBookWrapper = {};
-                    priceBookWrapper.priceBookName = priceBook.name;
-                    
-                    priceBook.prices.forEach(price => {
-                        priceBookWrapper[price.countryCode] = price.currencyType + ' ' + price.priceBookPrice;
+            try{
+                productWrappers.forEach(productWrapper => {
+                    this.columns.push({label: productWrapper.productName, fieldName: 'priceBookName'});
+                    if(productWrapper.priceInPercent){
+    
+                    }
+                    else{
+                        if(Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).includes('Standard')){ //Standard value should always be displayed first
+                            this.addCountryCodeColumnToTable('Standard', productWrapper.contactHomeCountriesToCurrencyIsoCodes);
+                        }
+    
+                        Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).forEach(contactHomeCountry => {
+                            if(contactHomeCountry != 'Standard'){
+                                this.addCountryCodeColumnToTable(contactHomeCountry, productWrapper.contactHomeCountriesToCurrencyIsoCodes);
+                            }
+                        })
+                    }
+    
+                    productWrapper.productPriceBooks.forEach(priceBook => {
+                        let priceBookWrapper = {};
+                        priceBookWrapper.priceBookName = priceBook.name;
+                        
+                        Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).forEach(contactHomeCountry => {
+                            priceBookWrapper[contactHomeCountry] = priceBook.price;
+                        })
+                        this.data.push(priceBookWrapper);
                     })
-                    this.data.push(priceBookWrapper);
-                })
-            });
-            this.showSpinner = false; 
-        }).catch(error => {
-            this.showError = true;
-            if(error instanceof TypeError){
-                this.errorMessage = error.message;    
+                });
+                this.showSpinner = false;
+            }catch(error){
+                this.processError(error)
             }
-            else{
-                this.errorMessage = error.statusText;
-                this.setErrorCode(error.status);
-            }
+             
+        }).catch(error => this.processError(error));
+    }
 
-            this.showSpinner = false;
+    processError(error){
+        this.showError = true;
+        if(error.status == null){
+            this.errorMessage = error.message;    
+        }
+        else{
+            this.errorMessage = error.statusText;
+            this.setErrorCode(error.status);
+        }
+
+        this.showSpinner = false;
+    }
+
+    addCountryCodeColumnToTable(contactHomeCountry, contactHomeCountriesToCurrencyIsoCodes){
+        this.columns.push({
+            label: contactHomeCountry, fieldName: contactHomeCountry, type: 'currency', typeAttributes: {
+                currencyCode: contactHomeCountriesToCurrencyIsoCodes[contactHomeCountry]
+            }
         });
     }
 }
