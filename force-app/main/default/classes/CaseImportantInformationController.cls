@@ -5,7 +5,9 @@ public with sharing class CaseImportantInformationController {
         Set<Id> productIds = new Set<Id>();
 
         for(Case caseToProcess: casesToProcess){
-            productIds.add(caseToProcess.Contact.Product__c);
+            if(caseToProcess?.Contact?.Product__c != null){
+                productIds.add(caseToProcess.Contact.Product__c);
+            }
         }
 
         return ProductDataProcessor.buildParentProductWrappers(productIds);

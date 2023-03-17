@@ -61,7 +61,6 @@ public with sharing class ProductDataProcessor {
         @AuraEnabled
         public PriceBookWrapper[] productPriceBooks;
 
-        public ProductWrapper(){}
         public ProductWrapper(String defaultCurrencyCode, Boolean priceInPercent, String productName, Contact[] contactList, PricebookEntry[] priceBookEntryList){
             this.productName = productName;
             this.priceInPercent = priceInPercent;
