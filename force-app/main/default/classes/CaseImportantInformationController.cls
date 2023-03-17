@@ -47,8 +47,10 @@ public with sharing class CaseImportantInformationController {
         for(Id productId: productIds){
             Contact[] parentProductContacts = productIdToContactsMap.get(productId);
 
-            if(!parentProductContacts.isEmpty()){ //There is no table if there are no contacts related to the product, because the contacts gives us the countries of the product
+            if(parentProductContacts != null && !parentProductContacts.isEmpty()){
+                System.debug(parentProductContacts[0].Product__r.QuantityUnitOfMeasure);
                 Boolean priceInPercent = (parentProductContacts[0].Product__r.QuantityUnitOfMeasure == 'Percent');
+                System.debug(priceInPercent);
                 PricebookEntry[] productPricebookEntries = productIdToPriceBookEntriesMap.get(productId);
                 wrappersToReturn.add(new ProductWrapper(
                     defaultCurrencyCode, priceInPercent, 
@@ -74,10 +76,11 @@ public with sharing class CaseImportantInformationController {
         public ProductWrapper(){}
         public ProductWrapper(String defaultCurrencyCode, Boolean priceInPercent, String productName, Contact[] contactList, PricebookEntry[] priceBookEntryList){
             this.productName = productName;
+            this.priceInPercent = priceInPercent;
             contactHomeCountriesToCurrencyIsoCodes = new Map<String, String>();
             productPriceBooks = new PriceBookWrapper[0];
             
-            Map<String, PricebookEntry[]> priceBookIdToEntriesMap = new Map<String, PricebookEntry[]>();
+            Map<String, PricebookEntry> priceBookIdToEntryMap = new Map<String, PricebookEntry>();
 
             for(Contact c: contactList){
                 if(c.Home_Country__c == null){
@@ -90,16 +93,11 @@ public with sharing class CaseImportantInformationController {
 
             if(priceBookEntryList != null){
                 for(PricebookEntry priceBookEntry: priceBookEntryList){
-                    if(priceBookIdToEntriesMap.containsKey(priceBookEntry.Pricebook2Id)){
-                        priceBookIdToEntriesMap.get(priceBookEntry.Pricebook2Id).add(priceBookEntry);
-                    }
-                    else{
-                        priceBookIdToEntriesMap.put(priceBookEntry.Pricebook2Id, new PricebookEntry[]{priceBookEntry});
-                    }
+                    priceBookIdToEntryMap.put(priceBookEntry.Pricebook2Id, priceBookEntry);
                 }
     
-                for(PricebookEntry[] entriesOfAPriceBook: priceBookIdToEntriesMap.values()){
-                    productPriceBooks.add(new PriceBookWrapper(entriesOfAPriceBook));
+                for(PricebookEntry entry: priceBookIdToEntryMap.values()){
+                    productPriceBooks.add(new PriceBookWrapper(entry));
                 }
             }
         }
@@ -111,9 +109,9 @@ public with sharing class CaseImportantInformationController {
         @AuraEnabled
         public Decimal price;
         
-        public PriceBookWrapper(PricebookEntry[] priceBookEntryList){
-            name = priceBookEntryList[0].Pricebook2.Name;
-            price = priceBookEntryList[0].UnitPrice;
+        public PriceBookWrapper(PricebookEntry priceBookEntry){
+            name = priceBookEntry.Pricebook2.Name;
+            price = priceBookEntry.UnitPrice;
         }
     }
 }

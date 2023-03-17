@@ -29,20 +29,15 @@ export default class CaseImportantInformation extends LightningElement {
             try{
                 productWrappers.forEach(productWrapper => {
                     this.columns.push({label: productWrapper.productName, fieldName: 'priceBookName'});
-                    if(productWrapper.priceInPercent){
-    
+                    if(Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).includes('Standard')){ //Standard value should always be displayed first
+                        this.addCountryCodeColumnToTable('Standard', productWrapper);
                     }
-                    else{
-                        if(Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).includes('Standard')){ //Standard value should always be displayed first
-                            this.addCountryCodeColumnToTable('Standard', productWrapper.contactHomeCountriesToCurrencyIsoCodes);
+
+                    Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).forEach(contactHomeCountry => {
+                        if(contactHomeCountry != 'Standard'){
+                            this.addCountryCodeColumnToTable(contactHomeCountry, productWrapper);
                         }
-    
-                        Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).forEach(contactHomeCountry => {
-                            if(contactHomeCountry != 'Standard'){
-                                this.addCountryCodeColumnToTable(contactHomeCountry, productWrapper.contactHomeCountriesToCurrencyIsoCodes);
-                            }
-                        })
-                    }
+                    })
     
                     productWrapper.productPriceBooks.forEach(priceBook => {
                         let priceBookWrapper = {};
@@ -75,11 +70,18 @@ export default class CaseImportantInformation extends LightningElement {
         this.showSpinner = false;
     }
 
-    addCountryCodeColumnToTable(contactHomeCountry, contactHomeCountriesToCurrencyIsoCodes){
-        this.columns.push({
-            label: contactHomeCountry, fieldName: contactHomeCountry, type: 'currency', typeAttributes: {
-                currencyCode: contactHomeCountriesToCurrencyIsoCodes[contactHomeCountry]
+    addCountryCodeColumnToTable(contactHomeCountry, productWrapper){
+        let column;
+        if(productWrapper.priceInPercent){
+            column = {label: contactHomeCountry, fieldName: contactHomeCountry, type: 'percent'}
+        }
+        else{
+            column = {
+                label: contactHomeCountry, fieldName: contactHomeCountry, type: 'currency', typeAttributes: {
+                    currencyCode: productWrapper.contactHomeCountriesToCurrencyIsoCodes[contactHomeCountry]
+                }
             }
-        });
+        }
+        this.columns.push(column);
     }
 }
