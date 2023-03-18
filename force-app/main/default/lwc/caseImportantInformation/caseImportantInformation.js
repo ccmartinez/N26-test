@@ -5,13 +5,13 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class CaseImportantInformation extends LightningElement {
     @api recordId;
-    @track contactProductHyperLink = null;
-    @track contactHomeCountry = null;
+    @track contactProductHyperLink;
+    @track contactHomeCountry;
     @track showSpinner = true;
     @track showError = false;
-    @track errorCode = null;
+    @track errorCode;
     @track errorCodePopulated = false;
-    @track errorMessage = null;
+    @track errorMessage;
     data = [];
     columns = [];
     draftValues = [];
@@ -36,7 +36,11 @@ export default class CaseImportantInformation extends LightningElement {
                 this.productWrappers = {};
                 productWrappers.forEach(productWrapper => {
                     this.productWrappers[productWrapper.id] = productWrapper;
-                    this.columns.push({editable: true, label: productWrapper.name, fieldName: 'priceBookName'});
+                    this.columns.push({editable: true, label: productWrapper.name, fieldName: 'priceBookName', actions: [
+                        { label: 'All', checked: true, name: 'all' },
+                        { label: 'Published', checked: false, name: 'show_published' },
+                        { label: 'Unpublished', checked: false, name: 'show_unpublished' },
+                    ]});
                     if(Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).includes('Standard')){ //Standard value should always be displayed first
                         this.addCountryCodeColumnToTable('Standard', productWrapper);
                     }
@@ -74,12 +78,22 @@ export default class CaseImportantInformation extends LightningElement {
             let pricebookWrappers = [];
             let saveDraftValues = event.detail.draftValues;
             saveDraftValues.forEach(pricebook => {
+                if(pricebook.id.includes('row')){ //if it is a new row, let's just take the last product
+                    if(Object.keys(pricebook).length <= 1){
+
+                    }
+                    pricebook.id = null;
+                    Object.keys(this.productWrappers).forEach(productId => {
+                        this.currentProductWrapper = this.productWrappers[productId];
+                    })
+                }
+                else{
+                    this.currentProductWrapper = this.productWrappers[productId];
+                }
+
                 let wrapperToPush = {
                     id: pricebook.id
                 };
-
-                let productId = this.priceBooks[pricebook.id].productId;
-                this.currentProductWrapper = this.productWrappers[productId];
 
                 Object.keys(pricebook).every(fieldName => {
                     switch (fieldName){
@@ -102,7 +116,8 @@ export default class CaseImportantInformation extends LightningElement {
     
             updatePriceBookList({
                 pricebookWrappersAsJson: JSON.stringify(pricebookWrappers),
-                contactHomeCountriesToCurrencyIsoCodes: this.currentProductWrapper.contactHomeCountriesToCurrencyIsoCodes
+                contactHomeCountriesToCurrencyIsoCodes: this.currentProductWrapper.contactHomeCountriesToCurrencyIsoCodes,
+                productId: this.currentProductWrapper.id
             }).then(response => {
                 this.dispatchEvent(
                     new ShowToastEvent({
@@ -116,7 +131,7 @@ export default class CaseImportantInformation extends LightningElement {
                 this.dispatchEvent(
                     new ShowToastEvent({
                         title: 'Error',
-                        message: 'Code ' + error.status + ': ' + error.statusText,
+                        message: error.body.message == null ? error.statusText : error.body.message,
                         variant: 'error'
                     })
                 )
@@ -125,6 +140,22 @@ export default class CaseImportantInformation extends LightningElement {
         }catch(error){
             this.processError(error)
         }
+    }
+
+    addRow(){
+        this.data.push({});
+        this.showSpinner = true;
+        this.sleep(1).then(response => {
+            this.showSpinner = false;
+        });
+    }
+
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    handleChange(event){
+        this.value = event.target.value; 
     }
 
     processError(error){

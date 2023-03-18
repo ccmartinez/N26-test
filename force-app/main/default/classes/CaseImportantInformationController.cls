@@ -14,7 +14,7 @@ public with sharing class CaseImportantInformationController {
     }
 
     @AuraEnabled
-    public static void updatePriceBookList(String pricebookWrappersAsJson, Map<String, String> contactHomeCountriesToCurrencyIsoCodes){
+    public static void updatePriceBookList(String pricebookWrappersAsJson, Map<String, String> contactHomeCountriesToCurrencyIsoCodes, String productId){
         ProductDataProcessor.PriceBookWrapper[] pricebookWrappers = (ProductDataProcessor.PriceBookWrapper[]) JSON.deserialize(
             pricebookWrappersAsJson, ProductDataProcessor.PriceBookWrapper[].class
         );
@@ -28,33 +28,54 @@ public with sharing class CaseImportantInformationController {
             entryIds.add(pricebookWrapper.id);
         }
 
-        SObject[] recordsToUpdate = new SObject[0];
+        PricebookEntry[] entriesToUpsert = new PricebookEntry[0];
+        Pricebook2[] priceBooksToUpsert = new Pricebook2[0];
         Map<Id, PricebookEntry> entryMap = new Map<Id, PricebookEntry>([SELECT Product2Id, Pricebook2.Id FROM PricebookEntry WHERE Id IN :entryIds]);
         System.debug('entryids:' + entryIds);
         System.debug('entrymap:' + entryMap);
 
         for(ProductDataProcessor.PriceBookWrapper pricebookWrapper: pricebookWrappers){
-            PricebookEntry entryToUpdate = entryMap.get(pricebookWrapper.id);
+            if(pricebookWrapper.name == null || pricebookWrapper.countryCodeToPriceMap == null){
+                throw new CustomException('Required fields missing');
+            }
 
-            if(entryToUpdate != null){
-                if(pricebookWrapper.name != null){
-                    entryToUpdate.Pricebook2.Name = pricebookWrapper.name;
-                    recordsToUpdate.add(entryToUpdate.Pricebook2);
-                }
+            PricebookEntry entryToUpsert = entryMap.get(pricebookWrapper.id);
 
-                if(pricebookWrapper.countryCodeToPriceMap != null){
-                    for(String countryCode: pricebookWrapper.countryCodeToPriceMap.keySet()){
-                        Decimal originalUnitPriceSet = pricebookWrapper.countryCodeToPriceMap.get(countryCode);
-                        String entryCurrencyIsoCode = contactHomeCountriesToCurrencyIsoCodes.get(countryCode);
-                        Decimal unitPriceConversionRate = currencyCodeToCurrencyMap.get(entryCurrencyIsoCode).ConversionRate;
-                        entryToUpdate.UnitPrice = originalUnitPriceSet / unitPriceConversionRate;
-                        recordsToUpdate.add(entryToUpdate);
-                        break;
-                    }
-                }
+            if(entryToUpsert == null){
+                entryToUpsert = new PricebookEntry();
+                entryToUpsert.Pricebook2 = new Pricebook2();
+                entryToUpsert.Product2Id = productId;
+            }
+
+            if(pricebookWrapper.name != null){
+                entryToUpsert.Pricebook2.Name = pricebookWrapper.name;
+                priceBooksToUpsert.add(entryToUpsert.Pricebook2);
+            }
+
+            for(String countryCode: pricebookWrapper.countryCodeToPriceMap.keySet()){
+                    Decimal originalUnitPriceSet = pricebookWrapper.countryCodeToPriceMap.get(countryCode);
+                    String entryCurrencyIsoCode = contactHomeCountriesToCurrencyIsoCodes.get(countryCode);
+                    Decimal unitPriceConversionRate = currencyCodeToCurrencyMap.get(entryCurrencyIsoCode).ConversionRate;
+                    entryToUpsert.UnitPrice = originalUnitPriceSet / unitPriceConversionRate;
+                    entriesToUpsert.add(entryToUpsert);
+                    break;
             }
         }
 
-        update recordsToUpdate;
+        upsert priceBooksToUpsert;
+        for(PricebookEntry entry: entriesToUpsert){
+            if(entry.Id == null){
+                entry.Pricebook2Id = entry.Pricebook2.Id;
+                System.debug(entry.Id);
+                System.debug(entry.Pricebook2Id);
+                System.debug(entry.Pricebook2);
+            }
+        }
+
+        insert entriesToUpsert;
+    }
+
+    private class CustomException extends Exception {
+        
     }
 }
