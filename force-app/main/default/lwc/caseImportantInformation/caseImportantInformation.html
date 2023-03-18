@@ -17,10 +17,12 @@
                         <!--<b>Contact Product: </b> <lightning-formatted-rich-text value={contactProductHyperLink}></lightning-formatted-rich-text><br/>
                         <b>Contact Home Country: </b>{contactHomeCountry}-->
                         <lightning-datatable
-                            hide-checkbox-column
-                            key-field="contactProduct"
+                            hide-checkbox-column 
+                            key-field="Id"
                             data={data}
-                            columns={columns}>
+                            columns={columns}
+                            onsave={handleSave}
+                            draft-values={draftValues}>
                         </lightning-datatable>
                     </div>
                 </div>

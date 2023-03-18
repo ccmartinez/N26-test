@@ -1,5 +1,6 @@
 import { LightningElement, track, api} from 'lwc';
 import getProductsImportantDataBasedOnCases from '@salesforce/apex/CaseImportantInformationController.getProductsImportantDataBasedOnCases';
+import { updateRecord } from 'lightning/uiRecordApi';
 
 export default class CaseImportantInformation extends LightningElement {
     @api recordId;
@@ -12,6 +13,7 @@ export default class CaseImportantInformation extends LightningElement {
     @track errorMessage = null;
     data = [];
     columns = [];
+    draftValues = [];
     alreadyRendered = false;
 
     setErrorCode(val){
@@ -20,15 +22,17 @@ export default class CaseImportantInformation extends LightningElement {
     }
 
     renderedCallback(){
-        this.alreadyRendered = true;
-        this.retreiveData();
+        if(!this.alreadyRendered){
+            this.alreadyRendered = true;
+            this.retreiveData();
+        }
     }
 
     retreiveData(){
         getProductsImportantDataBasedOnCases({caseIds: [this.recordId]}).then(productWrappers => {
             try{
                 productWrappers.forEach(productWrapper => {
-                    this.columns.push({label: productWrapper.productName, fieldName: 'priceBookName'});
+                    this.columns.push({editable: true, label: productWrapper.productName, fieldName: 'priceBookName'});
                     if(Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).includes('Standard')){ //Standard value should always be displayed first
                         this.addCountryCodeColumnToTable('Standard', productWrapper);
                     }
@@ -41,10 +45,12 @@ export default class CaseImportantInformation extends LightningElement {
     
                     productWrapper.productPriceBooks.forEach(priceBook => {
                         let priceBookWrapper = {};
+                        priceBookWrapper.Id = priceBook.Id;
                         priceBookWrapper.priceBookName = priceBook.name;
                         
                         Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).forEach(contactHomeCountry => {
-                            priceBookWrapper[contactHomeCountry] = priceBook.price;
+                            let currencyIsoCode = productWrapper.contactHomeCountriesToCurrencyIsoCodes[contactHomeCountry];
+                            priceBookWrapper[contactHomeCountry] = priceBook.countryCodeToPriceMap[currencyIsoCode];
                         })
                         this.data.push(priceBookWrapper);
                     })
@@ -55,6 +61,21 @@ export default class CaseImportantInformation extends LightningElement {
             }
              
         }).catch(error => this.processError(error));
+    }
+
+    handleSave(event) {
+        let saveDraftValues = event.detail.draftValues;
+
+        saveDraftValues.forEach(element => {
+            Object.keys(element).forEach(fieldName => {
+                if(fieldName != 'Id'){
+                    element['UnitPrice'] = element[fieldName];
+                    delete element[fieldName];
+                }
+            });    
+        });
+ 
+        updateRecord(saveDraftValues[0]);
     }
 
     processError(error){
@@ -73,11 +94,11 @@ export default class CaseImportantInformation extends LightningElement {
     addCountryCodeColumnToTable(contactHomeCountry, productWrapper){
         let column;
         if(productWrapper.priceInPercent){
-            column = {label: contactHomeCountry, fieldName: contactHomeCountry, type: 'percent'}
+            column = {editable: true, label: contactHomeCountry, fieldName: contactHomeCountry, type: 'percent'}
         }
         else{
             column = {
-                label: contactHomeCountry, fieldName: contactHomeCountry, type: 'currency', typeAttributes: {
+                editable: true, label: contactHomeCountry, fieldName: contactHomeCountry, type: 'currency', typeAttributes: {
                     currencyCode: productWrapper.contactHomeCountriesToCurrencyIsoCodes[contactHomeCountry]
                 }
             }

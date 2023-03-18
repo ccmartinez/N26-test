@@ -3,14 +3,14 @@ public with sharing class ProductDataProcessor {
         ProductWrapper[] wrappersToReturn = new ProductWrapper[0];
         Map<Id, Contact[]> productIdToContactsMap = new Map<Id, Contact[]>();
         Map<Id, PricebookEntry[]> productIdToPriceBookEntriesMap = new Map<Id, PricebookEntry[]>();
-        String defaultCurrencyCode = [SELECT IsoCode FROM CurrencyType WHERE IsCorporate = true].IsoCode;
 
         Contact[] parentProductsContacts = [
             SELECT CurrencyIsoCode, Home_Country__c, Product__c, Product__r.Name, Product__r.QuantityUnitOfMeasure FROM Contact 
             WHERE Product__c IN :productIds AND Product__r.isActive = true
         ];
+
         PricebookEntry[] productsPriceBookEntries = [
-            SELECT Location__c, Pricebook2.Name, Product2Id, Product2.QuantityUnitOfMeasure, UnitPrice 
+            SELECT Location__c, Pricebook2.Name, Product2Id, Product2.CurrencyIsoCode, Product2.QuantityUnitOfMeasure, UnitPrice 
             FROM PricebookEntry WHERE Product2Id IN :productIds AND Product2.isActive = true
         ];
 
@@ -22,6 +22,8 @@ public with sharing class ProductDataProcessor {
                 productIdToContactsMap.put(c.Product__c, new Contact[]{c});
             }
         }
+
+        Map<String, CurrencyType> currencyCodeToCurrencyMap = getcurrencyCodeToCurrencyMap(parentProductsContacts);
 
         for(PricebookEntry productPriceBookEntry: productsPriceBookEntries){
             if(productIdToPriceBookEntriesMap.containsKey(productPriceBookEntry.Product2Id)){
@@ -41,7 +43,7 @@ public with sharing class ProductDataProcessor {
                 System.debug(priceInPercent);
                 PricebookEntry[] productPricebookEntries = productIdToPriceBookEntriesMap.get(productId);
                 wrappersToReturn.add(new ProductWrapper(
-                    defaultCurrencyCode, priceInPercent, 
+                    currencyCodeToCurrencyMap, priceInPercent, 
                     parentProductContacts[0].Product__r.Name, parentProductContacts, productPricebookEntries
                 ));
             }
@@ -49,6 +51,31 @@ public with sharing class ProductDataProcessor {
         
         System.debug(wrappersToReturn);
         return wrappersToReturn;
+    }
+
+    private static Map<String, CurrencyType> getcurrencyCodeToCurrencyMap(Contact[] contactsToProcess){
+        Map<String, CurrencyType> currencyCodeToCurrencyMap = new Map<String, CurrencyType>();
+        Set<String> contactsCurrencies = getContactCurrencyCodes(contactsToProcess);
+        CurrencyType[] currenciesToProcess = [SELECT ConversionRate, IsoCode, IsCorporate FROM CurrencyType WHERE IsCorporate = true OR IsoCode IN :contactsCurrencies];
+
+        for(CurrencyType contactCurrency: currenciesToProcess){
+            currencyCodeToCurrencyMap.put(contactCurrency.IsoCode, contactCurrency);
+
+            if(contactCurrency.IsCorporate){
+                currencyCodeToCurrencyMap.put('Standard', contactCurrency);
+            }
+        }
+
+        return currencyCodeToCurrencyMap;
+    }
+
+    private static Set<String> getContactCurrencyCodes(Contact[] parentProductsContacts){
+        Set<String> contactHomeCountries = new Set<String>();
+        for(Contact c: parentProductsContacts){
+            contactHomeCountries.add(c.CurrencyIsoCode);
+        }
+
+        return contactHomeCountries;
     }
 
     public class ProductWrapper{
@@ -61,30 +88,29 @@ public with sharing class ProductDataProcessor {
         @AuraEnabled
         public PriceBookWrapper[] productPriceBooks;
 
-        public ProductWrapper(String defaultCurrencyCode, Boolean priceInPercent, String productName, Contact[] contactList, PricebookEntry[] priceBookEntryList){
-            this.productName = productName;
-            this.priceInPercent = priceInPercent;
-            contactHomeCountriesToCurrencyIsoCodes = new Map<String, String>();
-            productPriceBooks = new PriceBookWrapper[0];
+        public ProductWrapper(
+            Map<String, CurrencyType> currencyCodeToCurrencyMap, Boolean priceInPercent, String productName, Contact[] contactList, PricebookEntry[] priceBookEntryList
+        ){
+            if(priceBookEntryList != null && !priceBookEntryList.isEmpty()){
+                String productCountryCode = priceBookEntryList[0].Product2.CurrencyIsoCode;
+
+                this.productName = productName;
+                this.priceInPercent = priceInPercent;
+                contactHomeCountriesToCurrencyIsoCodes = new Map<String, String>();
+                productPriceBooks = new PriceBookWrapper[0];
+                
+                for(Contact c: contactList){
+                    if(c.Home_Country__c == null){
+                        contactHomeCountriesToCurrencyIsoCodes.put('Standard', currencyCodeToCurrencyMap.get('Standard').IsoCode);
+                    }
+                    else{
+                        contactHomeCountriesToCurrencyIsoCodes.put(c.Home_Country__c, c.CurrencyIsoCode);
+                    }
+                }
+
             
-            Map<String, PricebookEntry> priceBookIdToEntryMap = new Map<String, PricebookEntry>();
-
-            for(Contact c: contactList){
-                if(c.Home_Country__c == null){
-                    contactHomeCountriesToCurrencyIsoCodes.put('Standard', defaultCurrencyCode);
-                }
-                else{
-                    contactHomeCountriesToCurrencyIsoCodes.put(c.Home_Country__c, c.CurrencyIsoCode);
-                }
-            }
-
-            if(priceBookEntryList != null){
                 for(PricebookEntry priceBookEntry: priceBookEntryList){
-                    priceBookIdToEntryMap.put(priceBookEntry.Pricebook2Id, priceBookEntry);
-                }
-    
-                for(PricebookEntry entry: priceBookIdToEntryMap.values()){
-                    productPriceBooks.add(new PriceBookWrapper(entry));
+                    productPriceBooks.add(new PriceBookWrapper(priceBookEntry, currencyCodeToCurrencyMap, contactHomeCountriesToCurrencyIsoCodes.values()));
                 }
             }
         }
@@ -92,13 +118,37 @@ public with sharing class ProductDataProcessor {
 
     public class PriceBookWrapper{
         @AuraEnabled
-        public String name;
+        public String Id, name;
         @AuraEnabled
-        public Decimal price;
+        public Map<String, Decimal> countryCodeToPriceMap;
         
-        public PriceBookWrapper(PricebookEntry priceBookEntry){
+        public PriceBookWrapper(
+            PricebookEntry priceBookEntry, Map<String, CurrencyType> currencyCodeToCurrencyMap, String[] currencyIsoCodes
+        ){
+            Id = priceBookEntry.Id;
             name = priceBookEntry.Pricebook2.Name;
-            price = priceBookEntry.UnitPrice;
+            initCountryCodeToPriceMap(currencyCodeToCurrencyMap, currencyIsoCodes, priceBookEntry.UnitPrice);
+        }
+
+        private void initCountryCodeToPriceMap(Map<String, CurrencyType> currencyCodeToCurrencyMap, String[] currencyIsoCodes, Decimal unitPrice){
+            countryCodeToPriceMap = new Map<String, Decimal>();
+
+
+            for(String countryCode: currencyIsoCodes){
+                System.debug('country code:' + countryCode);
+                System.debug('currencyCodeToCurrencyMap:' + currencyCodeToCurrencyMap);
+                CurrencyType isoCodeCurrency = currencyCodeToCurrencyMap.get(countryCode);
+                if(isoCodeCurrency == null){
+                    isoCodeCurrency = currencyCodeToCurrencyMap.get('Standard');
+                }
+                
+                Decimal priceToAdd = unitPrice * isoCodeCurrency.ConversionRate;
+                System.debug(unitPrice);
+                System.debug(isoCodeCurrency.ConversionRate);
+                System.debug(priceToAdd);
+
+                countryCodeToPriceMap.put(countryCode, priceToAdd);
+            }
         }
     }
 }
