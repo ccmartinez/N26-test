@@ -1,6 +1,6 @@
 import { LightningElement, track, api} from 'lwc';
 import getProductsImportantDataBasedOnCases from '@salesforce/apex/CaseImportantInformationController.getProductsImportantDataBasedOnCases';
-import { updateRecord } from 'lightning/uiRecordApi';
+import updatePriceBookList from '@salesforce/apex/CaseImportantInformationController.updatePriceBookList';
 
 export default class CaseImportantInformation extends LightningElement {
     @api recordId;
@@ -31,8 +31,11 @@ export default class CaseImportantInformation extends LightningElement {
     retreiveData(){
         getProductsImportantDataBasedOnCases({caseIds: [this.recordId]}).then(productWrappers => {
             try{
+                this.priceBooks = {};
+                this.productWrappers = {};
                 productWrappers.forEach(productWrapper => {
-                    this.columns.push({editable: true, label: productWrapper.productName, fieldName: 'priceBookName'});
+                    this.productWrappers[productWrapper.id] = productWrapper;
+                    this.columns.push({editable: true, label: productWrapper.name, fieldName: 'priceBookName'});
                     if(Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).includes('Standard')){ //Standard value should always be displayed first
                         this.addCountryCodeColumnToTable('Standard', productWrapper);
                     }
@@ -44,9 +47,11 @@ export default class CaseImportantInformation extends LightningElement {
                     })
     
                     productWrapper.productPriceBooks.forEach(priceBook => {
+                        this.priceBooks[priceBook.id] = priceBook;
                         let priceBookWrapper = {};
-                        priceBookWrapper.Id = priceBook.Id;
+                        priceBookWrapper.id = priceBook.id;
                         priceBookWrapper.priceBookName = priceBook.name;
+
                         
                         Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).forEach(contactHomeCountry => {
                             let currencyIsoCode = productWrapper.contactHomeCountriesToCurrencyIsoCodes[contactHomeCountry];
@@ -64,18 +69,38 @@ export default class CaseImportantInformation extends LightningElement {
     }
 
     handleSave(event) {
+        let pricebookWrappers = [];
         let saveDraftValues = event.detail.draftValues;
+        saveDraftValues.forEach(pricebook => {
+            let wrapperToPush = {
+                id: pricebook.id
+            };
 
-        saveDraftValues.forEach(element => {
-            Object.keys(element).forEach(fieldName => {
-                if(fieldName != 'Id'){
-                    element['UnitPrice'] = element[fieldName];
-                    delete element[fieldName];
+            let productId = this.priceBooks[pricebook.id].productId;
+            this.currentProductWrapper = this.productWrappers[productId];
+            
+            Object.keys(pricebook).every(fieldName => {
+                switch (fieldName){
+                    case 'id':
+                        return true;
+                    case 'priceBookName':
+                        wrapperToPush.name = pricebook.priceBookName;
+                        return true;
+                    default:
+                        let countryCodeToPriceMap = {};
+                        countryCodeToPriceMap[fieldName] = parseFloat(pricebook[fieldName]);
+                        wrapperToPush.countryCodeToPriceMap = countryCodeToPriceMap;
+                        return false;//We only need one currency value, the rest will be converted automatically in the table
                 }
-            });    
+            });
+
+            pricebookWrappers.push(wrapperToPush);
         });
  
-        updateRecord(saveDraftValues[0]);
+        updatePriceBookList({
+            pricebookWrappersAsJson: JSON.stringify(pricebookWrappers),
+            contactHomeCountriesToCurrencyIsoCodes: this.currentProductWrapper.contactHomeCountriesToCurrencyIsoCodes
+        });
     }
 
     processError(error){
@@ -99,7 +124,7 @@ export default class CaseImportantInformation extends LightningElement {
         else{
             column = {
                 editable: true, label: contactHomeCountry, fieldName: contactHomeCountry, type: 'currency', typeAttributes: {
-                    currencyCode: productWrapper.contactHomeCountriesToCurrencyIsoCodes[contactHomeCountry]
+                    currencyCode: productWrapper.contactHomeCountriesToCurrencyIsoCodes[contactHomeCountry], step: '0.01'
                 }
             }
         }
