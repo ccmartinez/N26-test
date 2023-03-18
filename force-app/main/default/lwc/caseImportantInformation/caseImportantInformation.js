@@ -1,6 +1,7 @@
 import { LightningElement, track, api} from 'lwc';
 import getProductsImportantDataBasedOnCases from '@salesforce/apex/CaseImportantInformationController.getProductsImportantDataBasedOnCases';
 import updatePriceBookList from '@salesforce/apex/CaseImportantInformationController.updatePriceBookList';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class CaseImportantInformation extends LightningElement {
     @api recordId;
@@ -69,38 +70,61 @@ export default class CaseImportantInformation extends LightningElement {
     }
 
     handleSave(event) {
-        let pricebookWrappers = [];
-        let saveDraftValues = event.detail.draftValues;
-        saveDraftValues.forEach(pricebook => {
-            let wrapperToPush = {
-                id: pricebook.id
-            };
+        try{
+            let pricebookWrappers = [];
+            let saveDraftValues = event.detail.draftValues;
+            saveDraftValues.forEach(pricebook => {
+                let wrapperToPush = {
+                    id: pricebook.id
+                };
 
-            let productId = this.priceBooks[pricebook.id].productId;
-            this.currentProductWrapper = this.productWrappers[productId];
-            
-            Object.keys(pricebook).every(fieldName => {
-                switch (fieldName){
-                    case 'id':
-                        return true;
-                    case 'priceBookName':
-                        wrapperToPush.name = pricebook.priceBookName;
-                        return true;
-                    default:
-                        let countryCodeToPriceMap = {};
-                        countryCodeToPriceMap[fieldName] = parseFloat(pricebook[fieldName]);
-                        wrapperToPush.countryCodeToPriceMap = countryCodeToPriceMap;
-                        return false;//We only need one currency value, the rest will be converted automatically in the table
-                }
+                let productId = this.priceBooks[pricebook.id].productId;
+                this.currentProductWrapper = this.productWrappers[productId];
+
+                Object.keys(pricebook).every(fieldName => {
+                    switch (fieldName){
+                        case 'id':
+                            return true;
+                        case 'priceBookName':
+                            wrapperToPush.name = pricebook.priceBookName;
+                            return true;
+                        default:
+                            let countryCodeToPriceMap = {};
+                            countryCodeToPriceMap[fieldName] = parseFloat(pricebook[fieldName]);
+                            wrapperToPush.countryCodeToPriceMap = countryCodeToPriceMap;
+                            return false;//We only need one currency value, the rest will be converted automatically in the table
+                    }
+                });
+
+                pricebookWrappers.push(wrapperToPush);
+                
             });
-
-            pricebookWrappers.push(wrapperToPush);
-        });
- 
-        updatePriceBookList({
-            pricebookWrappersAsJson: JSON.stringify(pricebookWrappers),
-            contactHomeCountriesToCurrencyIsoCodes: this.currentProductWrapper.contactHomeCountriesToCurrencyIsoCodes
-        });
+    
+            updatePriceBookList({
+                pricebookWrappersAsJson: JSON.stringify(pricebookWrappers),
+                contactHomeCountriesToCurrencyIsoCodes: this.currentProductWrapper.contactHomeCountriesToCurrencyIsoCodes
+            }).then(response => {
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Success',
+                        message: 'Product price data updated successfully',
+                        variant: 'success'
+                    })
+                )
+                location.reload();
+            }).catch(error => {
+                this.dispatchEvent(
+                    new ShowToastEvent({
+                        title: 'Error',
+                        message: 'Code ' + error.status + ': ' + error.statusText,
+                        variant: 'error'
+                    })
+                )
+                this.draftValues = [];
+            });
+        }catch(error){
+            this.processError(error)
+        }
     }
 
     processError(error){
