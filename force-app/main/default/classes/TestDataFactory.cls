@@ -17,7 +17,7 @@ public with sharing class TestDataFactory {
         Contact[] listToReturn = new Contact[numberOfObjectsToCreate];
 
         for(Integer i = 0; i < numberOfObjectsToCreate; i++){
-            listToReturn[i] = new Contact(LastName = 'LastName');
+            listToReturn[i] = new Contact(LastName = 'LastName', UUID__c = i + '');
         }
 
         if(doInsert){
