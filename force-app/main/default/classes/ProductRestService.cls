@@ -14,7 +14,6 @@ global with sharing class ProductRestService {
             Contact contactToProcess = [SELECT Product__c FROM Contact WHERE UUID__c = :contactUUID];
 
             String response = JSON.serialize(ProductDataProcessor.buildParentProductWrappers(new Set<Id>{contactToProcess.Product__c}));
-            System.debug(response);
             return new Map<String, String>{
                 'Product Data' => response
             };

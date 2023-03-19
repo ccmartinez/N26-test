@@ -55,7 +55,6 @@ public with sharing class ProductDataProcessorTest {
             }, new String[]{isoCodeNotFound}, true
         );
         Test.stopTest();
-        System.debug(wrapper.countryCodeToPriceMap);
         Assert.areEqual(corporateCurrency.ConversionRate, wrapper.countryCodeToPriceMap.get(isoCodeNotFound) / unitPrice * 100);//100 to add the percentage calculation
     }
 }
