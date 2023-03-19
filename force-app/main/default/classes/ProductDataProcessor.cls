@@ -49,7 +49,7 @@ public with sharing class ProductDataProcessor {
         Map<String, PricebookEntry[]> productIdToPriceBookEntriesMap = new Map<String, PricebookEntry[]>();
 
         PricebookEntry[] productsPriceBookEntries = [
-            SELECT Location__c, Pricebook2.Name, Product2Id, Product2.CurrencyIsoCode, Product2.Name, Product2.QuantityUnitOfMeasure, UnitPrice 
+            SELECT Pricebook2.Name, Product2Id, Product2.CurrencyIsoCode, Product2.Name, Product2.QuantityUnitOfMeasure, UnitPrice 
             FROM PricebookEntry WHERE Product2Id IN :productIds AND Product2.isActive = true
         ];
 
