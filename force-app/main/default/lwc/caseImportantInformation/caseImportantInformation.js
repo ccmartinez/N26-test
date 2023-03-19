@@ -1,6 +1,6 @@
 import { LightningElement, track, api} from 'lwc';
 import getProductsImportantDataBasedOnCases from '@salesforce/apex/CaseImportantInformationController.getProductsImportantDataBasedOnCases';
-import updatePriceBookList from '@salesforce/apex/CaseImportantInformationController.updatePriceBookList';
+import upsertPriceBookList from '@salesforce/apex/CaseImportantInformationController.upsertPriceBookList';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
 export default class CaseImportantInformation extends LightningElement {
@@ -78,21 +78,17 @@ export default class CaseImportantInformation extends LightningElement {
             let pricebookWrappers = [];
             let saveDraftValues = event.detail.draftValues;
             saveDraftValues.forEach(pricebook => {
-                if(pricebook.id.includes('row')){ //if it is a new row, let's just take the last product
-                    if(Object.keys(pricebook).length <= 1){
-
-                    }
+                if(pricebook.id.includes('row')){ //if it is a new row, clean the wrong id
                     pricebook.id = null;
-                    Object.keys(this.productWrappers).forEach(productId => {
-                        this.currentProductWrapper = this.productWrappers[productId];
-                    })
                 }
-                else{
+                
+                Object.keys(this.productWrappers).forEach(productId => {
                     this.currentProductWrapper = this.productWrappers[productId];
-                }
+                })
 
                 let wrapperToPush = {
-                    id: pricebook.id
+                    id: pricebook.id,
+                    productId: this.currentProductWrapper.id
                 };
 
                 Object.keys(pricebook).every(fieldName => {
@@ -114,10 +110,9 @@ export default class CaseImportantInformation extends LightningElement {
                 
             });
     
-            updatePriceBookList({
+            upsertPriceBookList({
                 pricebookWrappersAsJson: JSON.stringify(pricebookWrappers),
-                contactHomeCountriesToCurrencyIsoCodes: this.currentProductWrapper.contactHomeCountriesToCurrencyIsoCodes,
-                productId: this.currentProductWrapper.id
+                contactHomeCountriesToCurrencyIsoCodes: this.currentProductWrapper.contactHomeCountriesToCurrencyIsoCodes
             }).then(response => {
                 this.dispatchEvent(
                     new ShowToastEvent({

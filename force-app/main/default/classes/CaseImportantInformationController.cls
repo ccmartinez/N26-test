@@ -14,7 +14,7 @@ public with sharing class CaseImportantInformationController {
     }
 
     @AuraEnabled
-    public static void updatePriceBookList(String pricebookWrappersAsJson, Map<String, String> contactHomeCountriesToCurrencyIsoCodes, String productId){
+    public static void upsertPriceBookList(String pricebookWrappersAsJson, Map<String, String> contactHomeCountriesToCurrencyIsoCodes){
         ProductDataProcessor.PriceBookWrapper[] pricebookWrappers = (ProductDataProcessor.PriceBookWrapper[]) JSON.deserialize(
             pricebookWrappersAsJson, ProductDataProcessor.PriceBookWrapper[].class
         );
@@ -31,11 +31,9 @@ public with sharing class CaseImportantInformationController {
         PricebookEntry[] entriesToUpsert = new PricebookEntry[0];
         Pricebook2[] priceBooksToUpsert = new Pricebook2[0];
         Map<Id, PricebookEntry> entryMap = new Map<Id, PricebookEntry>([SELECT Product2Id, Pricebook2.Id FROM PricebookEntry WHERE Id IN :entryIds]);
-        System.debug('entryids:' + entryIds);
-        System.debug('entrymap:' + entryMap);
 
         for(ProductDataProcessor.PriceBookWrapper pricebookWrapper: pricebookWrappers){
-            if(pricebookWrapper.name == null || pricebookWrapper.countryCodeToPriceMap == null){
+            if((pricebookWrapper.name == null && pricebookWrapper.id == null) || pricebookWrapper.countryCodeToPriceMap == null){
                 throw new CustomException('Required fields missing');
             }
 
@@ -44,10 +42,14 @@ public with sharing class CaseImportantInformationController {
             if(entryToUpsert == null){
                 entryToUpsert = new PricebookEntry();
                 entryToUpsert.Pricebook2 = new Pricebook2();
-                entryToUpsert.Product2Id = productId;
+                entryToUpsert.Product2Id = pricebookWrapper.productId;
             }
 
             if(pricebookWrapper.name != null){
+                if(entryToUpsert.Pricebook2 == null){
+                    entryToUpsert.Pricebook2 = new Pricebook2();
+                }
+                
                 entryToUpsert.Pricebook2.Name = pricebookWrapper.name;
                 priceBooksToUpsert.add(entryToUpsert.Pricebook2);
             }
@@ -66,16 +68,13 @@ public with sharing class CaseImportantInformationController {
         for(PricebookEntry entry: entriesToUpsert){
             if(entry.Id == null){
                 entry.Pricebook2Id = entry.Pricebook2.Id;
-                System.debug(entry.Id);
-                System.debug(entry.Pricebook2Id);
-                System.debug(entry.Pricebook2);
             }
         }
 
-        insert entriesToUpsert;
+        upsert entriesToUpsert;
     }
 
-    private class CustomException extends Exception {
+    public class CustomException extends Exception {
         
     }
 }

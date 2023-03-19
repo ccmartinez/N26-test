@@ -51,7 +51,7 @@ public with sharing class ProductDataProcessor {
 
     private static Map<String, CurrencyType> getCurrencyCodeToCurrencyMap(Contact[] contactsToProcess){
         Set<String> contactsCurrencies = getContactCurrencyCodes(contactsToProcess);
-        
+
         return getCurrencyCodeToCurrencyMap(contactsCurrencies);
     }
 
@@ -134,7 +134,6 @@ public with sharing class ProductDataProcessor {
 
         private void initCountryCodeToPriceMap(Map<String, CurrencyType> currencyCodeToCurrencyMap, String[] currencyIsoCodes, Decimal unitPrice){
             countryCodeToPriceMap = new Map<String, Decimal>();
-
 
             for(String countryCode: currencyIsoCodes){
                 CurrencyType isoCodeCurrency = currencyCodeToCurrencyMap.get(countryCode);
