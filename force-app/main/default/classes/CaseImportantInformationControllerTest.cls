@@ -33,7 +33,7 @@ public with sharing class CaseImportantInformationControllerTest {
         Boolean exceptionCaught = false;
         ProductDataProcessor.PriceBookWrapper[] pricebookWrappers = new ProductDataProcessor.PriceBookWrapper[1];
         pricebookWrappers[0] = new ProductDataProcessor.PriceBookWrapper(
-            new PricebookEntry(), new Map<String, CurrencyType>(), new String[0]
+            new PricebookEntry(), new Map<String, CurrencyType>(), new String[0], false
         );
 
         Test.startTest();
@@ -66,7 +66,7 @@ public with sharing class CaseImportantInformationControllerTest {
 
         ProductDataProcessor.PriceBookWrapper[] pricebookWrappers = new ProductDataProcessor.PriceBookWrapper[1];
         pricebookWrappers[0] = new ProductDataProcessor.PriceBookWrapper(
-            entryToUpsert, currencyCodeToCurrencyMap, currencyCodes
+            entryToUpsert, currencyCodeToCurrencyMap, currencyCodes, false
         );
 
         pricebookWrappers[0].id = entryToUpsert.Id;

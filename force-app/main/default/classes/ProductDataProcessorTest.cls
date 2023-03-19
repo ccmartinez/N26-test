@@ -1,7 +1,9 @@
 @isTest
 public with sharing class ProductDataProcessorTest {
     @isTest static void buildParentProductWrappers(){
-        Product2 product = TestDataFactory.getProductList(1, true)[0];
+        Product2 product = TestDataFactory.getProductList(1, false)[0];
+        product.QuantityUnitOfMeasure = 'Percent';
+        insert product;
 
         Contact[] contacts = TestDataFactory.getContactList(2, false);
         for(Contact c: contacts){
@@ -50,10 +52,10 @@ public with sharing class ProductDataProcessorTest {
         Test.startTest();
         ProductDataProcessor.PricebookWrapper wrapper = new ProductDataProcessor.PricebookWrapper(new PricebookEntry(UnitPrice = unitPrice), new Map<String, CurrencyType>{
             'Standard' => corporateCurrency
-            }, new String[]{isoCodeNotFound}
+            }, new String[]{isoCodeNotFound}, true
         );
         Test.stopTest();
         System.debug(wrapper.countryCodeToPriceMap);
-        Assert.areEqual(corporateCurrency.ConversionRate, wrapper.countryCodeToPriceMap.get(isoCodeNotFound) / unitPrice);
+        Assert.areEqual(corporateCurrency.ConversionRate, wrapper.countryCodeToPriceMap.get(isoCodeNotFound) / unitPrice * 100);//100 to add the percentage calculation
     }
 }
