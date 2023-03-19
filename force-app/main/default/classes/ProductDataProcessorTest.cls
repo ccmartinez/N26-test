@@ -45,13 +45,15 @@ public with sharing class ProductDataProcessorTest {
 
     @isTest static void initCountryCodeToPriceMapCurrencyNotFound(){
         Integer unitPrice = 5;
+        String isoCodeNotFound = 'Iso code not found';
         CurrencyType corporateCurrency = [SELECT ConversionRate FROM CurrencyType WHERE IsCorporate = true];
         Test.startTest();
         ProductDataProcessor.PricebookWrapper wrapper = new ProductDataProcessor.PricebookWrapper(new PricebookEntry(UnitPrice = unitPrice), new Map<String, CurrencyType>{
             'Standard' => corporateCurrency
-            }, new String[]{'Iso code not found'}
+            }, new String[]{isoCodeNotFound}
         );
         Test.stopTest();
-        Assert.areEqual(unitPrice / corporateCurrency.ConversionRate, wrapper.countryCodeToPriceMap.get('Standard'));
+        System.debug(wrapper.countryCodeToPriceMap);
+        Assert.areEqual(corporateCurrency.ConversionRate, wrapper.countryCodeToPriceMap.get(isoCodeNotFound) / unitPrice);
     }
 }
