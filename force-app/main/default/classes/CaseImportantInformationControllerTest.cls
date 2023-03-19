@@ -82,8 +82,7 @@ public with sharing class CaseImportantInformationControllerTest {
         if(entriesInDb.isEmpty()){
             entriesInDb = [SELECT Pricebook2.Name, UnitPrice FROM PriceBookEntry WHERE Pricebook2.Name = :pricebookWrappers[0].name]; //common sense tells us to use a single query with 2 conditions, but apex does not seem to follow it here, since joining these two queries into a single one sometimes does not return any record, feel free to test it by yourself
         }
-        System.debug(entryToUpsert.Id);
-        System.debug(entriesInDb.isEmpty());
+
         Assert.isTrue(!entriesInDb.isEmpty(), 'No entries were created for the given product and pricebook');
         Assert.areEqual(1, entriesInDb[0].UnitPrice);
     }
