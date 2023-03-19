@@ -49,11 +49,21 @@ public with sharing class TestDataFactory {
         }
 
         if(createParents){
-            Pricebook2[] priceBookList = getPriceBookList(numberOfObjectsToCreate, true);
+            Pricebook2[] priceBookList;
+            if(numberOfObjectsToCreate > 1){
+                priceBookList = getPriceBookList(numberOfObjectsToCreate - 1, true);
+            }
+
             Product2[] productList = getProductList(numberOfObjectsToCreate, true);
 
             for(Integer i = 0; i < numberOfObjectsToCreate; i++){
-                listToReturn[i].Pricebook2Id = priceBookList[i].Id;
+                if(i == 0){
+                    listToReturn[i].Pricebook2Id = Test.getStandardPricebookId();
+                }
+                else{
+                    listToReturn[i].Pricebook2Id = priceBookList[i - 1].Id;
+                }
+                
                 listToReturn[i].Product2Id = productList[i].Id;
             }
         }
