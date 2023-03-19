@@ -36,34 +36,9 @@ export default class CaseImportantInformation extends LightningElement {
                 this.productWrappers = {};
                 productWrappers.forEach(productWrapper => {
                     this.productWrappers[productWrapper.id] = productWrapper;
-                    this.columns.push({editable: true, label: productWrapper.name, fieldName: 'priceBookName', actions: [
-                        { label: 'All', checked: true, name: 'all' },
-                        { label: 'Published', checked: false, name: 'show_published' },
-                        { label: 'Unpublished', checked: false, name: 'show_unpublished' },
-                    ]});
-                    if(Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).includes('Standard')){ //Standard value should always be displayed first
-                        this.addCountryCodeColumnToTable('Standard', productWrapper);
-                    }
-
-                    Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).forEach(contactHomeCountry => {
-                        if(contactHomeCountry != 'Standard'){
-                            this.addCountryCodeColumnToTable(contactHomeCountry, productWrapper);
-                        }
-                    })
+                    this.addCountryCodeColumnsToTable(productWrappers);
     
-                    productWrapper.productPriceBooks.forEach(priceBook => {
-                        this.priceBooks[priceBook.id] = priceBook;
-                        let priceBookWrapper = {};
-                        priceBookWrapper.id = priceBook.id;
-                        priceBookWrapper.priceBookName = priceBook.name;
-
-                        
-                        Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).forEach(contactHomeCountry => {
-                            let currencyIsoCode = productWrapper.contactHomeCountriesToCurrencyIsoCodes[contactHomeCountry];
-                            priceBookWrapper[contactHomeCountry] = priceBook.countryCodeToPriceMap[currencyIsoCode];
-                        })
-                        this.data.push(priceBookWrapper);
-                    })
+                    this.setPricebooksData(productWrapper);
                 });
                 this.showSpinner = false;
             }catch(error){
@@ -73,41 +48,76 @@ export default class CaseImportantInformation extends LightningElement {
         }).catch(error => this.processError(error));
     }
 
+    setPricebooksData(productWrapper){
+        productWrapper.productPriceBooks.forEach(priceBook => {
+            this.priceBooks[priceBook.id] = priceBook;
+            let priceBookWrapper = {};
+            priceBookWrapper.id = priceBook.id;
+            priceBookWrapper.priceBookName = priceBook.name;
+
+            
+            Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).forEach(contactHomeCountry => {
+                let currencyIsoCode = productWrapper.contactHomeCountriesToCurrencyIsoCodes[contactHomeCountry];
+                priceBookWrapper[contactHomeCountry] = priceBook.countryCodeToPriceMap[currencyIsoCode];
+            })
+            this.data.push(priceBookWrapper);
+        })
+    }
+
+    addCountryCodeColumnsToTable(productWrappers){
+        productWrappers.forEach(productWrapper => {
+            this.productWrappers[productWrapper.id] = productWrapper;
+            this.columns.push({editable: true, label: productWrapper.name, fieldName: 'priceBookName'});
+            if(Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).includes('Standard')){ //Standard value should always be displayed first
+                this.addCountryCodeColumnToTable('Standard', productWrapper);
+            }
+
+            Object.keys(productWrapper.contactHomeCountriesToCurrencyIsoCodes).forEach(contactHomeCountry => {
+                if(contactHomeCountry != 'Standard'){
+                    this.addCountryCodeColumnToTable(contactHomeCountry, productWrapper);
+                }
+            })
+        });
+    }
+
+    getPricebookWrapper(pricebookSavedData){
+        if(pricebookSavedData.id.includes('row')){ //if it is a new row, clean the wrong id
+            pricebookSavedData.id = null;
+        }
+        
+        Object.keys(this.productWrappers).forEach(productId => { //use last product, table is designed to show only one product, so we are selecting the only product available
+            this.currentProductWrapper = this.productWrappers[productId];
+        })
+
+        let wrapperToPush = {
+            id: pricebookSavedData.id,
+            productId: this.currentProductWrapper.id
+        };
+
+        Object.keys(pricebookSavedData).every(fieldName => {
+            switch (fieldName){
+                case 'id':
+                    return true;
+                case 'priceBookName':
+                    wrapperToPush.name = pricebookSavedData.priceBookName;
+                    return true;
+                default:
+                    let countryCodeToPriceMap = {};
+                    countryCodeToPriceMap[fieldName] = parseFloat(pricebookSavedData[fieldName]);
+                    wrapperToPush.countryCodeToPriceMap = countryCodeToPriceMap;
+                    return false;//We only need one currency value, the rest will be converted automatically in the table
+            }
+        });
+
+        return wrapperToPush;
+    }
+
     handleSave(event) {
         try{
             let pricebookWrappers = [];
             let saveDraftValues = event.detail.draftValues;
-            saveDraftValues.forEach(pricebook => {
-                if(pricebook.id.includes('row')){ //if it is a new row, clean the wrong id
-                    pricebook.id = null;
-                }
-                
-                Object.keys(this.productWrappers).forEach(productId => {
-                    this.currentProductWrapper = this.productWrappers[productId];
-                })
-
-                let wrapperToPush = {
-                    id: pricebook.id,
-                    productId: this.currentProductWrapper.id
-                };
-
-                Object.keys(pricebook).every(fieldName => {
-                    switch (fieldName){
-                        case 'id':
-                            return true;
-                        case 'priceBookName':
-                            wrapperToPush.name = pricebook.priceBookName;
-                            return true;
-                        default:
-                            let countryCodeToPriceMap = {};
-                            countryCodeToPriceMap[fieldName] = parseFloat(pricebook[fieldName]);
-                            wrapperToPush.countryCodeToPriceMap = countryCodeToPriceMap;
-                            return false;//We only need one currency value, the rest will be converted automatically in the table
-                    }
-                });
-
-                pricebookWrappers.push(wrapperToPush);
-                
+            saveDraftValues.forEach(pricebookSavedData => {
+                pricebookWrappers.push(this.getPricebookWrapper(pricebookSavedData));
             });
     
             upsertPriceBookList({
