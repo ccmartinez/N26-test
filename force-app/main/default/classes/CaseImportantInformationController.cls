@@ -43,7 +43,7 @@ public with sharing class CaseImportantInformationController {
         ]);
 
         for(ProductDataProcessor.PriceBookWrapper pricebookWrapper: pricebookWrappers){
-            if((pricebookWrapper.name == null && pricebookWrapper.id == null) || pricebookWrapper.countryCodeToPriceMap == null){
+            if((pricebookWrapper.name == null || pricebookWrapper.countryCodeToPriceMap == null) && pricebookWrapper.id == null){
                 throw new CustomException('Required fields missing');
             }
 
@@ -68,6 +68,7 @@ public with sharing class CaseImportantInformationController {
         PricebookEntry entryToCalculate, ProductDataProcessor.PricebookWrapper pricebookWrapper, Map<String, String> contactHomeCountriesToCurrencyIsoCodes,
         Map<String, CurrencyType> currencyCodeToCurrencyMap
     ){
+        if(pricebookWrapper.countryCodeToPriceMap != null){
             String countryCode;
             for(String countryCodeInsideMap: pricebookWrapper.countryCodeToPriceMap.keySet()){ //We only need the first country code, changes in the currency will be automatically applied to the rest of currencies
                 countryCode = countryCodeInsideMap;
@@ -82,6 +83,7 @@ public with sharing class CaseImportantInformationController {
             if(entryToCalculate.Product2?.QuantityUnitOfMeasure == 'Percent'){
                 entryToCalculate.UnitPrice *= 100;
             }
+        }
     }
 
     /**
