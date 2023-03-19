@@ -47,7 +47,7 @@ public with sharing class CaseImportantInformationControllerTest {
     }
 
     private static CurrencyType getCurrencyToUse(){
-        CurrencyType currencyToUse = [SELECT ConversionRate, IsoCode FROM CurrencyType WHERE IsoCode = 'GBP'];
+        CurrencyType currencyToUse = [SELECT ConversionRate, IsoCode FROM CurrencyType WHERE IsCorporate = false LIMIT 1];
         Assert.areNotEqual(1, currencyToUse.ConversionRate, 'Please select a more complex rate for proper currency conversion testing');
         
         return currencyToUse;
